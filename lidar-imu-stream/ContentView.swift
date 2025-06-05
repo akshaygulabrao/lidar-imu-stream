@@ -2,21 +2,19 @@ import SwiftUI
 import CoreMotion
 
 struct ContentView: View {
-    // State variables for the timer and current time
     @State private var currentTime = Date()
     @State private var timer: Timer?
     
-    // IMU data
     @State private var acceleration = CMAcceleration()
     @State private var rotationRate = CMRotationRate()
     @State private var magneticField = CMMagneticField()
+    @State private var heading: Double = 0
     
-    // Core Motion manager
     private let motionManager = CMMotionManager()
+    private let locationManager = CLLocationManager()
     
     var body: some View {
         VStack(spacing: 20) {
-            // Display the live-updating timestamp
             Text("Current Time:")
                 .font(.headline)
             Text(currentTime.formatted(date: .numeric, time: .standard))
@@ -24,9 +22,8 @@ struct ContentView: View {
                 .foregroundColor(.blue)
                 .padding()
             
-            // IMU Data Display
             VStack(alignment: .leading, spacing: 10) {
-                Text("IMU Data (10Hz)")
+                Text("IMU Data (2Hz)")
                     .font(.headline)
                     .padding(.bottom, 5)
                 
@@ -50,6 +47,10 @@ struct ContentView: View {
                     Text("Y: \(magneticField.y, specifier: "%.4f") μT")
                     Text("Z: \(magneticField.z, specifier: "%.4f") μT")
                 }
+                
+                Group {
+                    Text("Heading: \(heading, specifier: "%.1f")°")
+                }
             }
             .font(.system(size: 14, design: .monospaced))
             .padding()
@@ -58,35 +59,38 @@ struct ContentView: View {
         }
         .padding()
         .onAppear {
-            startTimer() // Start timer when the view appears
-            startIMUUpdates() // Start IMU updates
+            startTimer()
+            startIMUUpdates()
+            setupLocationManager()
         }
         .onDisappear {
-            timer?.invalidate() // Stop timer when the view disappears
-            stopIMUUpdates() // Stop IMU updates
+            timer?.invalidate()
+            stopIMUUpdates()
         }
     }
     
-    // Start a timer that updates `currentTime` every second
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             currentTime = Date()
         }
     }
     
-    // Start receiving IMU updates at 10Hz
+    private func setupLocationManager() {
+        locationManager.requestWhenInUseAuthorization()
+    }
+    
     private func startIMUUpdates() {
-        // Check if device motion is available
         guard motionManager.isDeviceMotionAvailable else {
             print("Device motion is not available")
             return
         }
         
-        // Set update interval to 0.5 seconds (2Hz)
-        motionManager.deviceMotionUpdateInterval = 0.5
+        // Configure to use the magnetometer
+        motionManager.showsDeviceMovementDisplay = true
+        motionManager.deviceMotionUpdateInterval = 0.5 // 2Hz
         
-        // Start updates
-        motionManager.startDeviceMotionUpdates(to: .main) { (data, error) in
+        // Start updates using the magnetic north reference frame
+        motionManager.startDeviceMotionUpdates(using: .xMagneticNorthZVertical, to: .main) { (data, error) in
             guard let data = data, error == nil else {
                 print("Error receiving motion data: \(error?.localizedDescription ?? "Unknown error")")
                 return
@@ -96,10 +100,13 @@ struct ContentView: View {
             acceleration = data.userAcceleration
             rotationRate = data.rotationRate
             magneticField = data.magneticField.field
+            
+            // Calculate heading from attitude
+            let attitude = data.attitude
+            heading = (attitude.yaw * 180 / .pi).truncatingRemainder(dividingBy: 360)
         }
     }
     
-    // Stop IMU updates
     private func stopIMUUpdates() {
         motionManager.stopDeviceMotionUpdates()
     }
