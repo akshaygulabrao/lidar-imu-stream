@@ -1,0 +1,56 @@
+./ContentView.swift
+---
+import SwiftUI
+
+struct ContentView: View {
+    // State variables for the timer and current time
+    @State private var currentTime = Date()
+    @State private var timer: Timer?
+    
+    var body: some View {
+        VStack {
+            // Display the live-updating timestamp
+            Text("Current Time:")
+                .font(.headline)
+            Text(currentTime.formatted(date: .numeric, time: .standard))
+                .font(.largeTitle)
+                .foregroundColor(.blue)
+                .padding()
+        }
+        .onAppear {
+            startTimer() // Start timer when the view appears
+        }
+        .onDisappear {
+            timer?.invalidate() // Stop timer when the view disappears
+        }
+    }
+    
+    // Start a timer that updates `currentTime` every second
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            currentTime = Date()
+        }
+    }
+}
+
+#Preview {
+    ContentView()
+}
+
+
+---
+./lidar_imu_streamApp.swift
+---
+import SwiftUI
+
+@main
+struct lidar_imu_streamApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+
+---
